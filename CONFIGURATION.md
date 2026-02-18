@@ -81,7 +81,7 @@ sudo apt update && sudo apt install -y curl
 curl -sSL https://freeswitch.org/fsget | bash -s $TOKEN release install
 ```
 
-FreeSWITCH est installé (généralement sous `/usr` ou `/etc/freeswitch`). Démarrer et tester :
+FreeSWITCH est installé : **config dans `/etc/freeswitch/`**, binaires dans le `PATH`. Démarrer et tester :
 
 ```bash
 fs_cli -rRS
@@ -195,14 +195,18 @@ sudo make install
 
 Le `.so` est en général installé dans le répertoire **mod** que FreeSWITCH utilise pour charger les modules, par exemple :
 
-| Type d’install FreeSWITCH | Répertoire des modules (mod) |
-|---------------------------|------------------------------|
-| Compilé avec `--prefix=/usr/local/freeswitch` | `/usr/local/freeswitch/mod/` |
-| Installé par paquets (fsget) | Souvent `/usr/lib/freeswitch/mod/` ou `/usr/lib/x86_64-linux-gnu/freeswitch/mod/` |
+| Type d’install FreeSWITCH | Répertoire de config (conf_dir) | Répertoire des modules (mod) |
+|---------------------------|----------------------------------|------------------------------|
+| **Paquets (fsget)**       | **`/etc/freeswitch/`**           | Souvent `/usr/lib/freeswitch/mod/` ou sous `/usr/lib/` |
+| Compilé avec `--prefix=/usr/local/freeswitch` | `/usr/local/freeswitch/conf/` | `/usr/local/freeswitch/mod/` |
 
-Vérifier le README du module pour le chemin exact après `make install`. Si le `.so` est ailleurs, le copier dans ce répertoire ou configurer FreeSWITCH pour le trouver.
+Vérifier le README du module pour le chemin exact après `make install`. Si le `.so` est ailleurs, le copier dans le répertoire mod utilisé par FreeSWITCH.
 
-**Activer le module** : dans la config FreeSWITCH, fichier **`conf/autoload_configs/modules.conf.xml`** (par rapport au répertoire de conf : `/usr/local/freeswitch/conf/` ou `/etc/freeswitch/` selon l’install), ajouter dans la section `<modules>` :
+**Activer le module** : éditer le fichier **`autoload_configs/modules.conf.xml`** dans le répertoire de config FreeSWITCH :
+- **Paquets** → `/etc/freeswitch/autoload_configs/modules.conf.xml`
+- **Source (prefix)** → `/usr/local/freeswitch/conf/autoload_configs/modules.conf.xml`
+
+Dans la section `<modules>`, ajouter :
 
 ```xml
 <load module="mod_audio_stream"/>
@@ -219,6 +223,8 @@ Dans le dialplan, utiliser l’application **`audio_stream`** avec l’URL de vo
 ```
 
 Exemple complet : fichier **`freeswitch/dialplan/ia_repondeur.xml`** dans ce dépôt (numéro de test **8000**).
+
+**Si FreeSWITCH est installé par paquets** : la config est dans **`/etc/freeswitch/`**. Pour le dialplan 8000, copier le fichier du dépôt vers `/etc/freeswitch/dialplan/default/ia_repondeur.xml` puis l’inclure depuis `default.xml` (ex. `<X-PRE-PROCESS cmd="include" data="default/ia_repondeur.xml"/>` dans la section des includes du contexte default).
 
 ---
 
