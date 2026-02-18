@@ -64,72 +64,98 @@ sudo ufw enable
 
 ## 4. Installation de FreeSWITCH sur le VPS
 
-Documentation officielle : [FreeSWITCH Wiki – Installation](https://freeswitch.org/confluence/display/FREESWITCH/Installation).
+**Documentation officielle :** [FreeSWITCH on Debian (SignalWire)](https://developer.signalwire.com/freeswitch/FreeSWITCH-Explained/Installation/Linux/Debian_67240088).
 
-### 4.1 Dépendances (Debian 12 x64)
+Depuis la v1.10.4, **Sofia-SIP** et **SpanDSP** ne sont plus dans l’arbre FreeSWITCH ; les paquets sont fournis par le dépôt SignalWire. Il faut un **SignalWire Personal Access Token** pour utiliser le script officiel (ajout du dépôt). Création du token : [How To Create a SignalWire Personal Access Token](https://developer.signalwire.com/freeswitch/How-To-Create-a-SignalWire-Personal-Access-Token_67240332).
+
+---
+
+### 4.1 Option A : Installation par paquets (recommandé)
+
+Pas de compilation, dépendances (dont SpanDSP/Sofia-SIP) gérées par le dépôt.
 
 ```bash
-sudo apt install -y build-essential pkg-config uuid-dev zlib1g-dev libjpeg-dev \
-  libsqlite3-dev libcurl4-openssl-dev libpcre3-dev libspeexdsp-dev libldns-dev \
-  libedit-dev libtiff5-dev yasm libopus-dev libsndfile1-dev unzip libavformat-dev \
-  libswscale-dev libavcodec-dev libavutil-dev liblua5.2-dev liblua5.2-0 cmake \
-  libpq-dev unixodbc-dev autoconf automake libxml2-dev libpq5
+TOKEN=VOTRE_SIGNALWIRE_TOKEN
+
+sudo apt update && sudo apt install -y curl
+curl -sSL https://freeswitch.org/fsget | bash -s $TOKEN release install
 ```
 
-> **Note :** Sur Debian 12, `libavresample` est déprécié ; `libavcodec-dev` et `libavutil-dev` suffisent pour FreeSWITCH. Si la compilation échoue sur une dépendance audio/vidéo, ajouter : `libavdevice-dev libavfilter-dev`.
-
-### 4.2 Libs SignalWire (pour FreeSWITCH 1.10+)
+FreeSWITCH est installé (généralement sous `/usr` ou `/etc/freeswitch`). Démarrer et tester :
 
 ```bash
-sudo git clone https://github.com/signalwire/libks.git /usr/local/src/libks
-cd /usr/local/src/libks && sudo cmake . && sudo make && sudo make install
-
-sudo git clone https://github.com/signalwire/signalwire-c.git /usr/local/src/signalwire-c
-cd /usr/local/src/signalwire-c && sudo cmake . && sudo make && sudo make install
+fs_cli -rRS
 ```
 
-### 4.3 Compilation FreeSWITCH
+(ou `systemctl start freeswitch` selon la configuration du paquet.) Les binaires sont dans le `PATH` ; la config est en général dans `/etc/freeswitch`. Pour **mod_audio_stream**, il faudra le compiler séparément (§ 5) et pointer le dialplan vers le bon chemin.
 
-**Important :** utiliser `--prefix=/usr/local/freeswitch` pour que binaires et config soient tous sous `/usr/local/freeswitch` (bin, conf, etc.).
+---
+
+### 4.2 Option B : Compilation depuis les sources (doc officielle)
+
+Référence : [Building From Source – Compiling Release Branch](https://developer.signalwire.com/freeswitch/FreeSWITCH-Explained/Installation/Linux/Debian_67240088#building-from-source).
+
+**Étape 1 –** Ajouter le dépôt SignalWire (fournit les paquets SpanDSP/Sofia-SIP pour la compilation) :
 
 ```bash
-cd /usr/src/freeswitch
+TOKEN=VOTRE_SIGNALWIRE_TOKEN
+
+sudo apt update && sudo apt install -y curl
+curl -sSL https://freeswitch.org/fsget | bash -s $TOKEN
+```
+
+**Étape 2 –** Installer les dépendances de build (y compris spandsp/sofia depuis le dépôt) :
+
+```bash
+sudo apt-get build-dep freeswitch
+```
+
+**Étape 3 –** Cloner, configurer et compiler (sans `--prefix`, installation par défaut dans `/usr/local`) :
+
+```bash
+cd /usr/src
+sudo git clone -b v1.10 https://github.com/signalwire/freeswitch.git
+cd freeswitch
 git config pull.rebase true
 ./bootstrap.sh -j
-./configure --prefix=/usr/local/freeswitch
+./configure
 make -j$(nproc)
 sudo make install
 ```
 
-### 4.4 Utilisateur et permissions
+**Étape 4 –** Permissions et utilisateur (post-installation officielle) : suivre les instructions affichées après `make install`, ou créer l’utilisateur et appliquer les droits sur le répertoire d’installation (souvent `/usr/local/freeswitch` si défini par le build).
+
+**Étape 5 –** Démarrer :
 
 ```bash
-sudo groupadd freeswitch
-sudo adduser --quiet --system --home /usr/local/freeswitch --gecos "FreeSWITCH" \
-  --ingroup freeswitch freeswitch --disabled-password
-sudo chown -R freeswitch:freeswitch /usr/local/freeswitch
-sudo chmod -R ug=rwX,o= /usr/local/freeswitch
+# Si le binaire est dans /usr/local/bin (sans prefix) :
+/usr/local/bin/freeswitch -nc
+
+# Ou si installé par les paquets :
+fs_cli -rRS
 ```
 
-### 4.5 Fichiers de configuration par défaut
-
-La cible `make samples` n’existe pas dans le dépôt FreeSWITCH actuel. Il faut copier les configs **vanilla** depuis l’arbre des sources vers le répertoire d’installation :
+Pour tout installer sous un répertoire dédié, utiliser par exemple :
 
 ```bash
-sudo mkdir -p /usr/local/freeswitch/conf
-sudo cp -r /usr/src/freeswitch/conf/vanilla/* /usr/local/freeswitch/conf/
-sudo chown -R freeswitch:freeswitch /usr/local/freeswitch/conf
+./configure --prefix=/usr/local/freeswitch
 ```
 
-Référence : [FreeSWITCH – Vanilla installation files](https://developer.signalwire.com/freeswitch/FreeSWITCH-Explained/Installation/Linux/Vanilla-installation-files_27591294/).
+puis `make` et `sudo make install`. Le binaire sera alors dans `/usr/local/freeswitch/bin/freeswitch`.
 
-Démarrer une fois pour vérifier :
+---
 
-```bash
-sudo /usr/local/freeswitch/bin/freeswitch -nc
-```
+### 4.3 Option C : Compilation manuelle sans token SignalWire
 
-**Si la commande est introuvable :** soit `make install` n’a pas été exécuté, soit la compilation a utilisé un autre prefix. Vérifier avec `ls /usr/local/freeswitch/bin/freeswitch` ou `which freeswitch`. Si vous aviez lancé `./configure` sans `--prefix`, réexécuter `./configure --prefix=/usr/local/freeswitch` puis `make -j$(nproc)` et `sudo make install`.
+Si vous ne souhaitez pas utiliser le dépôt SignalWire, il faut compiler **SpanDSP** (et éventuellement **Sofia-SIP**) depuis les sources, puis FreeSWITCH. Voir les dépôts [freeswitch/spandsp](https://github.com/freeswitch/spandsp) et [freeswitch/sofia-sip](https://github.com/freeswitch/sofia-sip). En résumé :
+
+1. Installer les dépendances listées au § 4.1 de l’ancienne version de ce guide (build-essential, libtiff5-dev, etc.).
+2. Compiler et installer spandsp (clone → `bootstrap.sh` → `configure --prefix=/usr/local` → `make` → `make install` → `ldconfig`).
+3. Exporter `PKG_CONFIG_PATH=/usr/local/lib/pkgconfig` puis compiler FreeSWITCH avec `./configure --prefix=/usr/local/freeswitch` et `make install`.
+
+Cette option est plus longue et sujette aux erreurs de dépendances ; les options A ou B sont recommandées.
+
+**Config vanilla (uniquement si vous avez compilé depuis les sources)** : si le répertoire de config est vide, copier les configs par défaut depuis l’arbre des sources (voir [Vanilla installation files](https://developer.signalwire.com/freeswitch/FreeSWITCH-Explained/Installation/Linux/Vanilla-installation-files_27591294/)), par ex. `cp -r /usr/src/freeswitch/conf/vanilla/* /usr/local/freeswitch/conf/` (adapter le chemin selon votre `--prefix`).
 
 ---
 
