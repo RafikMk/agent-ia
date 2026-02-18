@@ -21,7 +21,7 @@ Client (téléphone) → 3CX Cloud → SIP Trunk → VPS Ubuntu (FreeSWITCH)
 - Node.js 18+
 - Compte Google Cloud (Speech-to-Text + Text-to-Speech)
 - Clé API OpenAI (GPT)
-- FreeSWITCH avec **mod_audio_stream** sur le VPS (voir [CONFIGURATION.md](CONFIGURATION.md))
+- FreeSWITCH avec **mod_audio_stream** sur le VPS (Debian 12 x64 recommandé ; voir [CONFIGURATION.md](CONFIGURATION.md))
 
 ## Installation locale
 

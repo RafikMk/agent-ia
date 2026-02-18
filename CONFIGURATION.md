@@ -1,6 +1,6 @@
 # Configuration complète – IA Répondeur (3CX → FreeSWITCH → Node.js)
 
-Ce guide décrit les étapes **from scratch** pour déployer l’agent IA vocal sur un VPS Ubuntu, le connecter à 3CX Cloud via SIP, et pousser le code sur GitHub puis le cloner sur le VPS.
+Ce guide décrit les étapes **from scratch** pour déployer l’agent IA vocal sur un VPS **Debian 12 (Bookworm) x64**, le connecter à 3CX Cloud via SIP, et pousser le code sur GitHub puis le cloner sur le VPS.
 
 ---
 
@@ -9,7 +9,7 @@ Ce guide décrit les étapes **from scratch** pour déployer l’agent IA vocal 
 Le flux suivant est **fonctionnel** :
 
 ```
-Client (téléphone) → 3CX Cloud → SIP Trunk → VPS Ubuntu (FreeSWITCH)
+Client (téléphone) → 3CX Cloud → SIP Trunk → VPS Debian 12 (FreeSWITCH)
                                                       ↓
                                             mod_audio_stream (WebSocket)
                                                       ↓
@@ -28,7 +28,7 @@ Client (téléphone) → 3CX Cloud → SIP Trunk → VPS Ubuntu (FreeSWITCH)
 
 ## 2. Prérequis généraux
 
-- Un **VPS Ubuntu** (20.04 ou 22.04 LTS recommandé) avec IP publique.
+- Un **VPS Debian 12 (Bookworm) x64** avec IP publique.
 - Un compte **3CX Cloud** (ou 3CX on‑prem) pour le centre d’appels.
 - Un projet **Google Cloud** avec facturation activée (STT + TTS).
 - Une clé API **OpenAI** (GPT).
@@ -36,9 +36,9 @@ Client (téléphone) → 3CX Cloud → SIP Trunk → VPS Ubuntu (FreeSWITCH)
 
 ---
 
-## 3. VPS Ubuntu – préparation
+## 3. VPS Debian 12 (Bookworm) x64 – préparation
 
-Référence : [Ubuntu Server Guide](https://ubuntu.com/server/docs).
+Référence : [Debian Administrator's Handbook](https://debian-handbook.info/).
 
 ```bash
 # Mise à jour
@@ -50,9 +50,10 @@ sudo apt install -y git curl build-essential
 
 - Ouvrir en firewall les ports **5060/UDP** (SIP), **5080/TCP** (SIP TLS si utilisé), **8021** (Event Socket si besoin), et **8080** (WebSocket Node.js, à restreindre si possible à localhost ou à un reverse proxy).
 
-Exemple (ufw) :
+Exemple avec **ufw** (à installer sur Debian si besoin) :
 
 ```bash
+sudo apt install -y ufw
 sudo ufw allow 5060/udp
 sudo ufw allow 5080/tcp
 sudo ufw allow 8080/tcp   # ou seulement depuis localhost selon votre topologie
@@ -65,15 +66,17 @@ sudo ufw enable
 
 Documentation officielle : [FreeSWITCH Wiki – Installation](https://freeswitch.org/confluence/display/FREESWITCH/Installation).
 
-### 4.1 Dépendances (Ubuntu 22.04)
+### 4.1 Dépendances (Debian 12 x64)
 
 ```bash
 sudo apt install -y build-essential pkg-config uuid-dev zlib1g-dev libjpeg-dev \
   libsqlite3-dev libcurl4-openssl-dev libpcre3-dev libspeexdsp-dev libldns-dev \
   libedit-dev libtiff5-dev yasm libopus-dev libsndfile1-dev unzip libavformat-dev \
-  libswscale-dev libavresample-dev liblua5.2-dev liblua5.2 cmake libpq-dev \
-  unixodbc-dev autoconf automake libxml2-dev libpq-dev libpq5 ntpdate
+  libswscale-dev libavcodec-dev libavutil-dev liblua5.2-dev liblua5.2-0 cmake \
+  libpq-dev unixodbc-dev autoconf automake libxml2-dev libpq5
 ```
+
+> **Note :** Sur Debian 12, `libavresample` est déprécié ; `libavcodec-dev` et `libavutil-dev` suffisent pour FreeSWITCH. Si la compilation échoue sur une dépendance audio/vidéo, ajouter : `libavdevice-dev libavfilter-dev`.
 
 ### 4.2 Libs SignalWire (pour FreeSWITCH 1.10+)
 
@@ -129,11 +132,13 @@ Documentation / code : [amigniter/mod_audio_stream](https://github.com/amigniter
 
 Ce module envoie l’audio du canal FreeSWITCH vers une URL WebSocket (notre serveur Node.js) et peut recevoir l’audio en retour pour le playback.
 
-### 5.1 Dépendances
+### 5.1 Dépendances (Debian 12)
 
 ```bash
-sudo apt install -y libfreeswitch-dev libssl-dev zlib1g-dev libevent-dev libspeexdsp-dev cmake
+sudo apt install -y libssl-dev zlib1g-dev libevent-dev libspeexdsp-dev cmake
 ```
+
+> **Note :** `libfreeswitch-dev` n’existe pas dans les dépôts Debian ; les en-têtes viennent de l’installation de FreeSWITCH depuis les sources (§ 4). Si le build de mod_audio_stream ne trouve pas FreeSWITCH, indiquer le chemin d’install (ex. `-DFREESWITCH_DIR=/usr/local/freeswitch`) dans la commande cmake.
 
 ### 5.2 Compilation et installation
 
@@ -273,14 +278,16 @@ mkdir -p config
 # Copier le fichier JSON du compte de service Google dans config/google-credentials.json
 ```
 
-### 9.4 Node.js et dépendances
+### 9.4 Node.js et dépendances (Debian 12)
 
-Installer Node.js 18+ (ou 20 LTS) :
+Installer Node.js 20 LTS (NodeSource supporte Debian 12 Bookworm) :
 
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
 ```
+
+Vérifier : `node -v` (v20.x) et `npm -v`.
 
 Puis :
 
@@ -330,7 +337,7 @@ sudo systemctl status ia-repondeur
 
 | # | Étape | Référence |
 |---|--------|-----------|
-| 1 | VPS Ubuntu + firewall (SIP, WebSocket) | § 3 |
+| 1 | VPS Debian 12 x64 + firewall (SIP, WebSocket) | § 3 |
 | 2 | Installer FreeSWITCH (source) | § 4 |
 | 3 | Compiler et charger mod_audio_stream | § 5 |
 | 4 | Configurer 3CX : trunk SIP vers VPS + routage sortant | § 6 |
