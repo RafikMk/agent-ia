@@ -113,10 +113,15 @@ sudo chmod -R ug=rwX,o= /usr/local/freeswitch
 
 ### 4.5 Fichiers de configuration par défaut
 
+La cible `make samples` n’existe pas dans le dépôt FreeSWITCH actuel. Il faut copier les configs **vanilla** depuis l’arbre des sources vers le répertoire d’installation :
+
 ```bash
-sudo make samples
-# ou copier les configs depuis /usr/src/freeswitch/conf vers /usr/local/freeswitch/conf
+sudo mkdir -p /usr/local/freeswitch/conf
+sudo cp -r /usr/src/freeswitch/conf/vanilla/* /usr/local/freeswitch/conf/
+sudo chown -R freeswitch:freeswitch /usr/local/freeswitch/conf
 ```
+
+Référence : [FreeSWITCH – Vanilla installation files](https://developer.signalwire.com/freeswitch/FreeSWITCH-Explained/Installation/Linux/Vanilla-installation-files_27591294/).
 
 Démarrer une fois pour vérifier :
 
