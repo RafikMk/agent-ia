@@ -175,23 +175,50 @@ sudo apt install -y libssl-dev zlib1g-dev libevent-dev libspeexdsp-dev cmake
 
 ### 5.2 Compilation et installation
 
+Indiquer le répertoire d’installation de FreeSWITCH pour que le `.so` soit installé au bon endroit (adapter `FREESWITCH_DIR` selon votre install) :
+
+- **FreeSWITCH installé par paquets (Option A)** : souvent `/usr` ou `/usr/share/freeswitch` → vérifier avec `fs_cli -x "module_exists mod_console"` et le chemin des modules (variable `mod_dir` ou répertoire dans `/usr`).
+- **FreeSWITCH compilé avec `--prefix=/usr/local/freeswitch`** : utiliser `FREESWITCH_DIR=/usr/local/freeswitch`.
+
 ```bash
 cd /usr/local/src
 sudo git clone --recursive https://github.com/amigniter/mod_audio_stream.git
 cd mod_audio_stream
 sudo mkdir build && cd build
-sudo cmake -DCMAKE_BUILD_TYPE=Release ..
+# Adapter FREESWITCH_DIR selon votre installation (voir ci‑dessus)
+sudo cmake -DCMAKE_BUILD_TYPE=Release -DFREESWITCH_DIR=/usr/local/freeswitch ..
 sudo make
 sudo make install
 ```
 
-Le `.so` est en général installé dans un répertoire que FreeSWITCH charge (ex. `/usr/local/freeswitch/mod/` selon votre install). Vérifier le README du module pour le chemin exact et l’ajouter à `modules.conf.xml` :
+### 5.3 Où est le `.so` et chargement du module
+
+Le `.so` est en général installé dans le répertoire **mod** que FreeSWITCH utilise pour charger les modules, par exemple :
+
+| Type d’install FreeSWITCH | Répertoire des modules (mod) |
+|---------------------------|------------------------------|
+| Compilé avec `--prefix=/usr/local/freeswitch` | `/usr/local/freeswitch/mod/` |
+| Installé par paquets (fsget) | Souvent `/usr/lib/freeswitch/mod/` ou `/usr/lib/x86_64-linux-gnu/freeswitch/mod/` |
+
+Vérifier le README du module pour le chemin exact après `make install`. Si le `.so` est ailleurs, le copier dans ce répertoire ou configurer FreeSWITCH pour le trouver.
+
+**Activer le module** : dans la config FreeSWITCH, fichier **`conf/autoload_configs/modules.conf.xml`** (par rapport au répertoire de conf : `/usr/local/freeswitch/conf/` ou `/etc/freeswitch/` selon l’install), ajouter dans la section `<modules>` :
 
 ```xml
 <load module="mod_audio_stream"/>
 ```
 
-Redémarrer FreeSWITCH. Dans le dialplan, utiliser une application du type `audio_stream` avec l’URL de votre serveur Node (ex. `ws://127.0.0.1:8080 bidirectional`). Voir le fichier `freeswitch/dialplan/ia_repondeur.xml` fourni dans ce dépôt.
+Redémarrer FreeSWITCH après modification.
+
+### 5.4 Dialplan et URL WebSocket
+
+Dans le dialplan, utiliser l’application **`audio_stream`** avec l’URL de votre serveur Node.js, par exemple en **bidirectionnel** :
+
+```xml
+<action application="audio_stream" data="ws://127.0.0.1:8080 bidirectional"/>
+```
+
+Exemple complet : fichier **`freeswitch/dialplan/ia_repondeur.xml`** dans ce dépôt (numéro de test **8000**).
 
 ---
 
