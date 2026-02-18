@@ -238,12 +238,115 @@ Documentation 3CX :
 
 ### 6.1 Côté FreeSWITCH (VPS) – accepter le trunk 3CX
 
-Sur le VPS, configurer FreeSWITCH pour accepter les appels SIP depuis l’IP (ou le domaine) 3CX :
+Objectif : que FreeSWITCH **accepte les appels SIP** envoyés par 3CX vers le VPS et les **route vers le 8000** (agent IA). Deux parties : **profil SIP** (qui peut appeler) et **dialplan** (vers quelle application envoyer l’appel).
 
-- **SIP profile** : dans `conf/sip_profiles/` (ex. `external.xml`), autoriser l’IP 3CX ou utiliser authentification (username/password).
-- **Dialplan** : une règle qui envoie les appels entrants (DID ou numéro cible) vers l’extension/application qui lance `audio_stream` vers Node.js (voir `freeswitch/dialplan/ia_repondeur.xml`). **Numéro de test fourni : 8000.**
+---
 
-Exemple minimal pour un trunk “3CX” : créer un gateway SIP 3CX qui envoie les appels vers l’IP du VPS, et sur le VPS une règle du type “si destination = **8000** → answer → audio_stream → hangup”.
+#### Comprendre le flux
+
+1. Un client appelle un numéro géré par **3CX**.
+2. **3CX** décide d’envoyer cet appel vers votre **VPS** (trunk sortant) avec la **destination 8000**.
+3. **FreeSWITCH** sur le VPS reçoit l’INVITE SIP (depuis l’IP 3CX, destination 8000).
+4. FreeSWITCH doit : (a) **accepter** cette connexion SIP, (b) **router** l’appel selon le numéro (8000) → votre règle dialplan lance `audio_stream` vers Node.js.
+
+---
+
+#### Étape 1 – Repérer le profil SIP qui reçoit les appels “externes”
+
+Les appels venant d’internet (dont 3CX) arrivent sur un **profil SIP** dédié (souvent “external” ou “public”).  
+**Chemin (install par paquets)** : `/etc/freeswitch/sip_profiles/`.
+
+```bash
+ls /etc/freeswitch/sip_profiles/
+```
+
+Vous verrez par exemple `external.xml`, `internal.xml`, etc. Le fichier qui **écoute sur le port 5060** (ou 5080) et est prévu pour les trunks/fournisseurs est en général **`external.xml`** (ou un profil nommé dans `freeswitch.xml`). Ouvrez ce fichier pour les étapes suivantes :
+
+```bash
+sudo nano /etc/freeswitch/sip_profiles/external.xml
+```
+
+---
+
+#### Étape 2 – Autoriser 3CX à envoyer des appels (deux possibilités)
+
+FreeSWITCH doit accepter les INVITE **depuis 3CX**. Deux façons courantes :
+
+**Option A – Autoriser par IP (ACL)**  
+Si vous connaissez l’**IP publique** de 3CX (ou de votre instance 3CX Cloud) :
+
+- Dans le **même répertoire** que `external.xml`, il peut y avoir un fichier du type `external.xml` qui contient une section `<param name="acl" value="..."/>` ou des listes ACL.
+- Ou dans `/etc/freeswitch/autoload_configs/` un fichier comme `acl.conf.xml` où sont définis des “domaines” (liste d’IP autorisées). Vous créez une liste contenant l’IP 3CX, puis dans le profil external vous référencez cette ACL.
+
+Exemple minimal dans **`acl.conf.xml`** (souvent dans `autoload_configs`) : définir une liste `3cx` avec l’IP de 3CX, puis dans le profil SIP utiliser cette ACL.  
+Exemple dans le **profil** (selon votre version) :
+
+```xml
+<param name="apply-inbound-acl" value="3cx"/>
+```
+
+Et dans `autoload_configs/acl.conf.xml`, une section du type :
+
+```xml
+<list name="3cx" default="deny">
+  <node type="allow" cidr="IP_3CX/32"/>
+</list>
+```
+
+Remplacez `IP_3CX` par l’IP publique de 3CX (ex. celle de votre 3CX Cloud).
+
+**Option B – Authentification par username / password**  
+3CX envoie un **username** et un **password** (configurés dans 3CX pour ce trunk). Côté FreeSWITCH il faut un **utilisateur SIP** (ou gateway) avec ce même login/mot de passe. Les appels venant de 3CX seront alors authentifiés.
+
+- Créer un utilisateur (dans `directory/` ou dans la config du profil) avec le même **username** et **password** que ceux configurés dans 3CX pour ce trunk.
+- Le profil external doit être configuré pour exiger l’auth (souvent le cas par défaut pour les trunks).
+
+Après modification, recharger le profil SIP ou redémarrer FreeSWITCH :
+
+```bash
+fs_cli -x "reloadacl"
+fs_cli -x "sofia profile external restart"
+```
+
+---
+
+#### Étape 3 – Contexte des appels entrants (default vs public)
+
+Quand 3CX envoie un appel vers le VPS, FreeSWITCH le reçoit sur le profil “external” et le fait entrer dans un **contexte** (dialplan). Ce contexte est défini dans le **profil SIP** (ex. dans `external.xml`) par une ligne du type :
+
+```xml
+<param name="context" value="default"/>
+```
+
+ou `value="public"`. **Notez ce contexte** (souvent `default` pour les trunks).
+
+- Si c’est **`default`** : la règle dialplan **8000** que vous avez mise dans `default/ia_repondeur.xml` s’applique : les appels avec **destination_number = 8000** iront vers `audio_stream`.
+- Si c’est **`public`** : il faut soit ajouter la **même** extension (8000 → answer → audio_stream) dans le dialplan **public**, soit faire en sorte que le profil envoie les appels dans le contexte **default** (en mettant `context` à `default`).
+
+Vérification possible après un appel test : dans `fs_cli`, logs ou `show channels` pour voir le contexte de l’appel entrant.
+
+---
+
+#### Étape 4 – Dialplan 8000 (déjà en place)
+
+Vous avez déjà :
+
+- Fichier **`/etc/freeswitch/dialplan/default/ia_repondeur.xml`** avec une extension qui matche **`destination_number = 8000`** et exécute `answer` → `audio_stream ws://127.0.0.1:8080 bidirectional` → `hangup`.
+- Inclusion de ce fichier dans **`default.xml`** via `<X-PRE-PROCESS cmd="include" data="default/ia_repondeur.xml"/>`.
+
+Donc : **tout appel entrant dans le contexte `default` avec le numéro 8000** est déjà routé vers l’agent IA. Il reste à s’assurer que les appels venant de 3CX arrivent bien dans le contexte `default` (étape 3) et que 3CX envoie la **destination 8000** (voir § 6.2).
+
+---
+
+#### Résumé schématique
+
+| Où | Quoi |
+|----|------|
+| **3CX** | Envoie l’appel vers l’IP du VPS, destination **8000**, avec auth ou depuis une IP autorisée. |
+| **FreeSWITCH – profil SIP (external)** | Accepte l’appel (ACL ou auth), contexte = **default**. |
+| **FreeSWITCH – dialplan default** | Si `destination_number` = **8000** → answer → audio_stream → Node.js → hangup. |
+
+Ensuite : configurer **3CX** (trunk sortant vers le VPS, routage vers 8000) comme décrit au § 6.2.
 
 ### 6.2 Côté 3CX Cloud – Trunk sortant vers le VPS
 
