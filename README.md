@@ -5,7 +5,7 @@ Agent IA qui répond aux appels en temps réel : **3CX Cloud** → **SIP** → *
 ## Architecture
 
 ```
-Client (téléphone) → 3CX Cloud → SIP Trunk → VPS Ubuntu (FreeSWITCH)
+Client (téléphone) → 3CX Cloud → SIP Trunk → VPS (FreeSWITCH)
                                                       ↓
                                             mod_audio_stream (WebSocket)
                                                       ↓
@@ -34,7 +34,7 @@ npm install
 npm start
 ```
 
-Le serveur WebSocket écoute par défaut sur `ws://0.0.0.0:8080`. FreeSWITCH (mod_audio_stream) doit pointer vers cette URL.
+Le serveur WebSocket écoute par défaut sur `ws://0.0.0.0:8080`. FreeSWITCH (mod_audio_stream) doit pointer vers cette URL. Le dialplan fourni route le numéro de test **8000** vers l’agent IA.
 
 ## Variables d’environnement
 
@@ -47,7 +47,7 @@ Voir [.env.example](.env.example). Principales :
 
 ## Configuration complète (VPS, 3CX, FreeSWITCH, Google, GitHub)
 
-Toutes les étapes **from scratch** (VPS Ubuntu, FreeSWITCH, mod_audio_stream, 3CX SIP trunk, Google Cloud, OpenAI, GitHub + déploiement) sont dans **[CONFIGURATION.md](CONFIGURATION.md)**.
+Toutes les étapes **from scratch** (VPS Debian 12, FreeSWITCH, mod_audio_stream, 3CX SIP trunk, Google Cloud, OpenAI, GitHub + déploiement) sont dans **[CONFIGURATION.md](CONFIGURATION.md)**. Numéro de test : **8000**.
 
 ## Structure du projet
 

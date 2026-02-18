@@ -5,7 +5,7 @@ Ce dossier contient des exemples de configuration pour faire pointer les appels 
 ## Fichiers
 
 - `modules.conf.xml` — charger `mod_audio_stream` (si compilé séparément).
-- `dialplan/ia_repondeur.xml` — dialplan exemple : envoyer l’appel vers l’agent IA via audio_stream.
+- `dialplan/ia_repondeur.xml` — dialplan exemple : les appels vers le **8000** sont envoyés à l’agent IA via audio_stream.
 
 ## Prérequis
 

@@ -6,13 +6,13 @@
     <X-PRE-PROCESS cmd="include" data="default/ia_repondeur.xml"/>
   </include>
 
-  Utilisation : définir une destination (extension, DID 3CX, etc.) qui exécute ce contexte.
+  Utilisation : les appels vers le numéro 8000 sont pris en charge par l'agent IA.
 -->
 <include>
   <context name="default">
-    <!-- Exemple : extension 888 = agent IA -->
-    <extension name="ia_repondeur_888">
-      <condition field="destination_number" expression="^888$">
+    <!-- Numéro de test : 8000 = agent IA -->
+    <extension name="ia_repondeur_8000">
+      <condition field="destination_number" expression="^8000$">
         <action application="answer"/>
         <action application="sleep" data="500"/>
         <!-- Remplacer par l'URL de votre serveur Node.js (ws://IP:PORT) -->

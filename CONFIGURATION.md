@@ -175,9 +175,9 @@ Documentation 3CX :
 Sur le VPS, configurer FreeSWITCH pour accepter les appels SIP depuis l’IP (ou le domaine) 3CX :
 
 - **SIP profile** : dans `conf/sip_profiles/` (ex. `external.xml`), autoriser l’IP 3CX ou utiliser authentification (username/password).
-- **Dialplan** : une règle qui envoie les appels entrants (DID ou numéro cible) vers l’extension/application qui lance `audio_stream` vers Node.js (voir `freeswitch/dialplan/ia_repondeur.xml`).
+- **Dialplan** : une règle qui envoie les appels entrants (DID ou numéro cible) vers l’extension/application qui lance `audio_stream` vers Node.js (voir `freeswitch/dialplan/ia_repondeur.xml`). **Numéro de test fourni : 8000.**
 
-Exemple minimal pour un trunk “3CX” : créer un gateway SIP 3CX qui envoie les appels vers l’IP du VPS, et sur le VPS une règle du type “si destination = numéro de l’agent IA → answer → audio_stream → hangup”.
+Exemple minimal pour un trunk “3CX” : créer un gateway SIP 3CX qui envoie les appels vers l’IP du VPS, et sur le VPS une règle du type “si destination = **8000** → answer → audio_stream → hangup”.
 
 ### 6.2 Côté 3CX Cloud – Trunk sortant vers le VPS
 
@@ -187,9 +187,9 @@ Exemple minimal pour un trunk “3CX” : créer un gateway SIP 3CX qui envoie l
    - **Host** : IP publique du VPS (ou FQDN).
    - **Port** : 5060 (ou 5080 si TLS).
    - **Username / Password** : si FreeSWITCH exige une authentification (à créer côté FreeSWITCH).
-4. **Outbound Call Routing** : créer une règle pour que les appels destinés au numéro de l’agent IA (ou à une extension dédiée) passent par ce trunk vers le VPS.
+4. **Outbound Call Routing** : créer une règle pour que les appels destinés au numéro **8000** (numéro de test de l’agent IA) passent par ce trunk vers le VPS.
 
-Ainsi, quand un client appelle le numéro géré par 3CX, 3CX envoie l’appel au VPS (FreeSWITCH), qui lance mod_audio_stream vers Node.js.
+Ainsi, quand un client appelle le **8000** (ou le numéro 3CX qui redirige vers 8000), 3CX envoie l’appel au VPS (FreeSWITCH), qui lance mod_audio_stream vers Node.js.
 
 ---
 
@@ -345,4 +345,4 @@ sudo systemctl status ia-repondeur
 | 6 | OpenAI : clé API + .env | § 8 |
 | 7 | GitHub : push du code, clone sur VPS, .env, npm start (ou systemd) | § 9 |
 
-Une fois tout en place : un appel reçu par 3CX et routé vers le VPS déclenche FreeSWITCH → mod_audio_stream → Node.js → STT → GPT → TTS → playback vers le client. L’architecture décrite est **fonctionnelle** ; il reste à ajuster dialplan et 3CX selon vos numéros et règles métier.
+Une fois tout en place : un appel reçu par 3CX et routé vers le **8000** déclenche FreeSWITCH → mod_audio_stream → Node.js → STT → GPT → TTS → playback vers le client. L’architecture décrite est **fonctionnelle** ; le numéro de test est **8000** (à adapter dans le dialplan et le routage 3CX si besoin).
