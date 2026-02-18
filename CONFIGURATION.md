@@ -90,14 +90,14 @@ cd /usr/local/src/signalwire-c && sudo cmake . && sudo make && sudo make install
 
 ### 4.3 Compilation FreeSWITCH
 
+**Important :** utiliser `--prefix=/usr/local/freeswitch` pour que binaires et config soient tous sous `/usr/local/freeswitch` (bin, conf, etc.).
+
 ```bash
-cd /usr/src
-sudo git clone https://github.com/signalwire/freeswitch.git -b v1.10 freeswitch
-cd freeswitch
-sudo git config pull.rebase true
-sudo ./bootstrap.sh -j
-sudo ./configure
-sudo make -j$(nproc)
+cd /usr/src/freeswitch
+git config pull.rebase true
+./bootstrap.sh -j
+./configure --prefix=/usr/local/freeswitch
+make -j$(nproc)
 sudo make install
 ```
 
@@ -128,6 +128,8 @@ Démarrer une fois pour vérifier :
 ```bash
 sudo /usr/local/freeswitch/bin/freeswitch -nc
 ```
+
+**Si la commande est introuvable :** soit `make install` n’a pas été exécuté, soit la compilation a utilisé un autre prefix. Vérifier avec `ls /usr/local/freeswitch/bin/freeswitch` ou `which freeswitch`. Si vous aviez lancé `./configure` sans `--prefix`, réexécuter `./configure --prefix=/usr/local/freeswitch` puis `make -j$(nproc)` et `sudo make install`.
 
 ---
 
